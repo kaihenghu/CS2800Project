@@ -63,58 +63,41 @@
 
 ; ******************* END INITIALIZATION FOR ACL2s MODE ******************* ;
 ;$ACL2s-SMode$;ACL2s
-
 ; CS2800 Project
 ; Kaiheng Hu
 
-(set-defunc-termination-strictp nil)
-(set-defunc-function-contract-strictp nil)
-(set-defunc-body-contracts-strictp nil)
-
-#|
+; Data definition of a list of integers
 (defdata loi (listof integer))
 
-(definec loip2 (x :all) :bool
-  (and (tlp x)
-       (or (equal x '())
-           (and (integerp (car x))
-                (loip2 (cdr x))))))
 
-(test? (implies (allp x)
-                (equal (loip x) (loip2 x))))
+; Definitions of utility functions
 
-(check= (loip2 '()) t)
-|#
-
-
+; Append 2 lists
 (definec app2 (a :tl b :tl) :tl
   (if (endp a)
     b
     (cons (first a) (app2 (rest a) b))))
 
+; Reverse a list
 (definec rev2 (x :tl) :tl
   (if (endp x)
     nil
     (app2 (rev2 (rest x)) (list (first x)))))
 
-(definec in2 (a :all X :tl) :bool
-  (and (consp X)
-       (or (equal a (first X))
-           (in2 a (rest X)))))
-
+; Length of a list
 (definec len2 (x :tl) :nat
   (if (endp x)
     0
     (+ 1 (len2 (rest x)))))
 
-(definec all-in-range (x :tl a :integer b :integer) :bool
+; Are all elements in a list of integers between lower bound a 
+; and upper bound b?
+(definec all-in-range (x :loi a :integer b :integer) :bool
   :ic (>= b a)
   (cond ((endp x) t)
-        ((if (not (integerp (car x))) 
-           (all-in-range (cdr x) a b)
-           (and (>= (car x) a)
+        (t (and (>= (car x) a)
                 (<= (car x) b)
-                (all-in-range (cdr x) a b))))))
+                (all-in-range (cdr x) a b)))))
 
 
 (check= (all-in-range '() 1 2) t)
@@ -127,273 +110,94 @@
 
 
 
-Lemma range-app2:
-(implies (and (tlp x)
-              (tlp y)
-              (integerp a)
-              (integerp b)
-              (>= b a))
+
+; Appending 2 lois yields another loi
+(defthm app2-loi
+  (implies (and (loip x) (loip y))
+           (loip (app2 x y))))
+
+; Reversing a loi yields another loi
+(defthm rev2-loi
+  (implies (loip x)
+           (loip (rev2 x))))
+
+; If 2 lois both satisfy all-in-range between 2 integers a and b,
+; then the result of appending these 2 lois also satisfies 
+; all-in-range between a and b.
+(defthm range-app2
+  (implies (and (loip x)
+                (loip y)
+                (integerp a)
+                (integerp b)
+                (>= b a))
          (equal (all-in-range (app2 x y) a b)
                 (and (all-in-range x a b)
                      (all-in-range y a b))))
+  :hints (("Goal" 
+           :induct (loip x))))
 
-Proof by: Induction on (tlp x)
-Induction Case range-app2-base:
-(implies (and (tlp x)
-              (tlp y)
-              (integerp a)
-              (integerp b)
-              (>= b a)
-              (not (consp x)))
-         (equal (all-in-range (app2 x y) a b)
-                (and (all-in-range x a b)
-                     (all-in-range y a b))))
-
-Context:
-C1. (tlp x)
-C2. (tlp y)
-C3. (integerp a)
-C4. (integerp b)
-C5. (>= b a)
-C6. (not (consp x))
-
-Derived Context:
-D1. (endp x) { C1, C6 }
-
-Goal:
-(equal (all-in-range (app2 x y) a b)
-       (and (all-in-range x a b)
-            (all-in-range y a b)))
-
-Proof:
-(equal (all-in-range (app2 x y) a b)
-       (and (all-in-range x a b)
-            (all-in-range y a b)))
-= { Def app2, C1, C2, D1 }
-(equal (all-in-range y a b)
-       (and (all-in-range x a b)
-            (all-in-range y a b)))
-= { Def all-in-range, C1, C3, C4, C5, D1 }
-(equal (all-in-range y a b)
-       (and t (all-in-range y a b)))
-= { PL }
-(equal (all-in-range y a b)
-       (all-in-range y a b))
-= { PL }
-t
-
-QED
-
-Induction Case range-app2-ind:
-(implies (and (tlp x)
-              (tlp y)
-              (integerp a)
-              (integerp b)
-              (>= b a)
-              (consp x)
-              (implies (and (tlp (cdr x))
-                            (tlp y)
-                            (integerp a)
-                            (integerp b)
-                            (>= b a))
-                       (equal (all-in-range (app2 (cdr x) y) a b)
-                              (and (all-in-range (cdr x) a b)
-                                   (all-in-range y a b)))))
-         (equal (all-in-range (app2 x y) a b)
-                (and (all-in-range x a b)
-                     (all-in-range y a b))))
-
-Context:
-C1. (tlp x)
-C2. (tlp y)
-C3. (integerp a)
-C4. (integerp b)
-C5. (>= b a)
-C6. (consp x)
-C7. (implies (and (tlp (cdr x))
-                  (tlp y)
-                  (integerp a)
-                  (integerp b)
-                  (>= b a))
-             (equal (all-in-range (app2 (cdr x) y) a b)
-                    (and (all-in-range (cdr x) a b)
-                         (all-in-range y a b))))
-
-Derived Context:
-D1. (tlp (cdr x)) { C1, C6, cons axiom }
-D2. (equal (all-in-range (app2 (cdr x) y) a b)
-           (and (all-in-range (cdr x) a b)
-                (all-in-range y a b))) { D1, C2, C3, C4, C5, C7, MP }
-
-Goal:
-(equal (all-in-range (app2 x y) a b)
-       (and (all-in-range x a b)
-            (all-in-range y a b)))
-
-Proof:
-(equal (all-in-range (app2 x y) a b)
-       (and (all-in-range x a b)
-            (all-in-range y a b)))
-= { Def app2, C1, C2, C6 }
-(equal (all-in-range (cons (car x) (app2 (cdr x) y)) a b)
-       (and (all-in-range x a b)
-            (all-in-range y a b)))
-= { Def all-in-range, cons axiom }
-(equal (if (not (integerp (car x)))
-         (all-in-range (app2 (cdr x) y) a b)
-         (and (>= (car x) a)
-              (<= (car x) b)
-              (all-in-range (app2 (cdr x) y) a b)))
-       (and (all-in-range x a b)
-            (all-in-range y a b)))
-= { Def all-in-range, C1, C6, C3, C4, C5 }
-(equal (if (not (integerp (car x)))
-         (all-in-range (app2 (cdr x) y) a b)
-         (and (>= (car x) a)
-              (<= (car x) b)
-              (all-in-range (app2 (cdr x) y) a b)))
-       (and (if (not (integerp (car x))) 
-              (all-in-range (cdr x) a b)
-              (and (>= (car x) a)
-                   (<= (car x) b)
-                   (all-in-range (cdr x) a b)))
-            (all-in-range y a b)))
-= { if axiom, PL }
-(equal (all-in-range (app2 (cdr x) y) a b)
-       (and (all-in-range (cdr x) a b)
-            (all-in-range y a b)))
-= { PL }
-t
-
-QED
-
-QED
+; If a loi satisfies all-in-range between a and b,
+; then the reverse of this loi also satisfies the same condition.
+(defthm range-rev2
+  (implies (and (loip x)
+                (integerp a)
+                (integerp b)
+                (>= b a)
+                (all-in-range x a b))
+           (all-in-range (rev2 x) a b))
+  :hints (("Goal" 
+           :induct (loip x))))
 
 
+; Data definition of an integer between 0 and 9
+(defdata numerals (range integer (0 <= _ <= 9)))
 
-Conjecture range-rev2:
-(implies (and (tlp x)
-              (integerp a)
-              (integerp b)
-              (>= b a))
-         (equal (all-in-range x a b)
-                (all-in-range (rev2 x) a b)))
+; Data definition of a list of integers between 0 and 9
+(defdata lon (listof numerals))
 
-Proof by: Induction on (tlp x)
-Induction Case range-rev2-base:
-(implies (and (tlp x)
-              (integerp a)
-              (integerp b)
-              (>= b a)
-              (not (consp x)))
-         (equal (all-in-range x a b)
-                (all-in-range (rev2 x) a b)))
+; The sum of a lon
+(definec sum-all (l :lon) :nat
+  (if (endp l)
+    0
+    (+ (car l) (sum-all (cdr l)))))
 
-Context:
-C1. (tlp x)
-C2. (integerp a)
-C3. (integerp b)
-C4. (>= b a)
-C5. (not (consp x))
+; The reverse of a lon is also a lon
+(defthm rev2-lon
+  (implies (lonp x)
+           (lonp (rev2 x))))
 
-Derived Context:
-D1. (endp x) { C1, C5 }
+; Appending 2 lons yields another lon
+(defthm app2-lon
+  (implies (and (lonp x)
+                (lonp y))
+           (lonp (app2 x y))))
 
-Goal:
-(equal (all-in-range x a b)
-       (all-in-range (rev2 x) a b))
+; The sum of 2 lons is the same as the sum of 1 lon plus the 
+; sum of the other lon.
+(defthm sum-all-app2
+  (implies (and (lonp x)
+                (lonp y))
+           (equal (sum-all (app2 x y))
+                  (+ (sum-all x) (sum-all y)))))
 
-Proof:
-(equal (all-in-range x a b)
-       (all-in-range (rev2 x) a b))
-= { Def all-in-range, C1, C2, C3, C4, D1 }
-(equal t (all-in-range (rev2 x) a b))
-= { Def rev2, C1, D1 }
-(equal t (all-in-range nil a b))
-= { Def all-in-range }
-(equal t t)
-= { PL }
-t
+; The sum of a lon is the same as the sum of its reverse.
+(defthm sum-all-rev2
+  (implies (lonp x)
+           (equal (sum-all x) (sum-all (rev2 x)))))
 
-QED
+; The sum of any lon must be less than or equal to 9 multiplied by
+; the length of that lon.
+(defthm sum-all-numerals
+  (implies (lonp x)
+           (<= (sum-all x) (* 9 (len2 x))))
+  :hints (("Goal"
+           :in-theory (disable sum-all-rev2))))
 
-Induction Case range-rev2-ind:
-(implies (and (tlp x)
-              (integerp a)
-              (integerp b)
-              (>= b a)
-              (consp x)
-              (implies (and (tlp (cdr x))
-                            (integerp a)
-                            (integerp b)
-                            (>= b a))
-                       (equal (all-in-range (cdr x) a b)
-                              (all-in-range (rev2 (cdr x)) a b))))
-         (equal (all-in-range x a b)
-                (all-in-range (rev2 x) a b)))
-
-Context:
-C1. (tlp x)
-C2. (integerp a)
-C3. (integerp b)
-C4. (>= b a)
-C5. (consp x)
-C6. (implies (and (tlp (cdr x))
-                  (integerp a)
-                  (integerp b)
-                  (>= b a))
-             (equal (all-in-range (cdr x) a b)
-                    (all-in-range (rev2 (cdr x)) a b)))
-
-Derived Context:
-D1. (tlp (cdr x)) { cons axiom, C1, C5 }
-D2. (equal (all-in-range (cdr x) a b)
-           (all-in-range (rev2 (cdr x)) a b)) { C6, D1, C2, C3, C4, MP }
-
-Goal: 
-(equal (all-in-range x a b)
-       (all-in-range (rev2 x) a b))
-
-Proof:
-(equal (all-in-range x a b)
-       (all-in-range (rev2 x) a b))
-= { Def rev2, C1, C5 }
-(equal (all-in-range x a b)
-       (all-in-range (app2 (rev2 (rest x)) (list (first x))) a b))
-= { Def all-in-range, C1, C2, C3, C4, C5 }
-(equal (if (not (integerp (car x))) (all-in-range (cdr x) a b)
-         (and (>= (car x) a)
-              (<= (car x) b)
-              (all-in-range (cdr x) a b)))
-       (all-in-range (app2 (rev2 (rest x)) (list (first x))) a b))
-= { Lemma range-app2((x (rev2 (rest x))) (y (list (first x))) (a a) (b b)) }
-(equal (if (not (integerp (car x))) (all-in-range (cdr x) a b)
-         (and (>= (car x) a)
-              (<= (car x) b)
-              (all-in-range (cdr x) a b)))
-       (and (all-in-range (rev2 (rest x)) a b)
-            (all-in-range (list (first x)) a b)))
-= { Def all-in-range, cons axiom }
-(equal (if (not (integerp (car x))) (all-in-range (cdr x) a b)
-         (and (>= (car x) a)
-              (<= (car x) b)
-              (all-in-range (cdr x) a b)))
-       (and (if (not (integerp (car x))) (all-in-range '() a b)
-              (and (>= (car x) a)
-                   (<= (car x) b)
-                   (all-in-range nil a b)))
-            (all-in-range (rev2 (rest x)) a b)))
-= { if axiom, PL }
-(equal (all-in-range (cdr x) a b)
-       (and (all-in-range nil a b)
-            (all-in-range (rev2 (rest x)) a b)))
-= { Def all-in-range }
-(equal (all-in-range (cdr x) a b)
-       (and t (all-in-range (rev2 (rest x)) a b)))
-= { PL, D2 }
-t
-
-QED
-
-QED
-
+; The sum of a reverse of any lon must be less than or equal to 9
+; multiplied by the lenght of that lon.
+(defthm sum-all-numerals-rev2
+  (implies (lonp x)
+           (<= (sum-all (rev2 x)) (* 9 (len2 x))))
+  :hints (("Goal"
+           :in-theory (disable sum-all-rev2)
+           :use (sum-all-numerals))))
